@@ -20,8 +20,8 @@ class ValidationServiceTest {
     void testValidateWidthHeightOfFieldInput() {
         InputXYOfField result = validationService.validateWidthHeightOfFieldInput("10 10");
         assertNotNull(result);
-        assertEquals(10, result.getX());
-        assertEquals(10, result.getY());
+        assertEquals(10, result.x());
+        assertEquals(10, result.y());
 
         result = validationService.validateWidthHeightOfFieldInput("10");
         assertNull(result);
@@ -45,12 +45,12 @@ class ValidationServiceTest {
         assertNull(validationService.validateAddCarOrRunSimulationInput("3"));
 
         var input = validationService.validateAddCarOrRunSimulationInput("1");
-        assertTrue(input.isAddCar());
-        assertFalse(input.isRunSimulation());
+        assertTrue(input.addCar());
+        assertFalse(input.runSimulation());
 
         input = validationService.validateAddCarOrRunSimulationInput("2");
-        assertFalse(input.isAddCar());
-        assertTrue(input.isRunSimulation());
+        assertFalse(input.addCar());
+        assertTrue(input.runSimulation());
     }
 
     @Test
@@ -86,7 +86,7 @@ class ValidationServiceTest {
         var input = validationService.validateInitialPositionOfCarInput("1 2 N");
         assertEquals(1, input.getPosition().getX());
         assertEquals(2, input.getPosition().getY());
-        assertEquals(Direction.N, input.getDirection());
+        assertEquals(Direction.NORTH, input.getDirection());
     }
 
     @Test

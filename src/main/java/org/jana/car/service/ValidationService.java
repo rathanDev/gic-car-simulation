@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -96,7 +97,7 @@ public class ValidationService {
         try {
             x = Integer.parseInt(splits[0].trim());
             y = Integer.parseInt(splits[1].trim());
-            direction = Direction.valueOf(splits[2].trim());
+            direction = Direction.fromChar(splits[2].trim().charAt(0));
         } catch (Exception e) {
             log.error("Err at validateInitialPositionOfCarInput; input:{}", inputStr, e);
             System.out.println(errMessage);
@@ -105,21 +106,22 @@ public class ValidationService {
         return new InputPositionDirection(x, y, direction);
     }
 
-    public String validateCommandsInput(String inputStr) {
+    public List<Command> validateCommandsInput(String inputStr) {
         log.info("ValidateCommandsInput; inputStr:{}", inputStr);
         if (inputStr == null || inputStr.trim().isEmpty()) {
             System.out.println(errMessage);
             return null;
         }
-        String command = inputStr.trim();
-        List<Character> commands = Command.getAsCharList();
-        for (char c : command.toCharArray()) {
-            if (!commands.contains(c)) {
+        List<Command> commands = new ArrayList<>();
+        for (char ch : inputStr.trim().toCharArray()) {
+            Command command = Command.fromChar(ch);
+            if (command == null) {
                 System.out.println(errMessage);
                 return null;
             }
+            commands.add(command);
         }
-        return command;
+        return commands;
     }
 
 }

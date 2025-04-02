@@ -5,7 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class SimulationService {
@@ -14,92 +18,96 @@ public class SimulationService {
     private Field field;
 
     public void initField(InputXYOfField input) {
-        int x = input.getX();
-        int y = input.getY();
-        log.info("InitializeField; x:{} y:{}", x, y);
-        field = new Field(x, y);
+        log.info("InitializeField; x:{} y:{}", input.x(), input.y());
+        field = new Field(input.x(), input.y());
     }
 
     public boolean isCarNameExist(String carName) {
         log.info("IsCarNameUnique; carName:{}", carName);
-        return field.getCarMap().containsKey(carName);
+        return field.getInitialCarMap().containsKey(carName);
     }
 
     public void addCar(Car car) {
         log.info("AddCar; carName:{}", car.getCarName());
-        field.addCar(car);
+        field.getInitialCarMap().put(car.getCarName(), car);
     }
 
-    public Car getCar(String carName) {
-        log.info("GetCar; carName:{}", carName);
-        return field.getCarMap().get(carName);
+    public void addCommand(String carName, List<Command> commands) {
+        log.info("AddCommand; carName:{} commands:{}", carName, commands);
+        field.getCommandMap().put(carName, commands);
     }
 
-    public void execute() {
-        log.info("ExecuteSimulation; cars:{}", field.getCarMap().keySet());
-        Map<Position, String> positionMap = new HashMap<>();
-        List<String> collidingCarNames = Collections.emptyList();
+    public void runSimulation() {
+        log.info("RunSimulation; cars:{}", field.getInitialCarMap().keySet());
+        field.getInitialCarMap().forEach((key, value) -> field.getSimulatedCarMap().put(key, new Car(value)));
+        int maxSteps = field.getCommandMap().values().stream().mapToInt(List::size).max().orElse(0);
+        Map<Position, String> positionMap = field.getSimulatedCarMap().values().stream().collect(Collectors.toMap(Car::getPosition, Car::getCarName));
+
         int step = 1;
-        int maxSteps = 0;
-
-        Collection<Car> cars = field.getCarMap().values();
-        for (Car car : cars) {
-            String carName = car.getCarName();
-            positionMap.put(car.getPosition(), carName);
-            maxSteps = Math.max(maxSteps, car.getCommand().length());
-        }
-
         while (step <= maxSteps) {
-            for (Map.Entry<String, Car> entry : field.getCarMap().entrySet()) {
+            for (Map.Entry<String, Car> entry : field.getSimulatedCarMap().entrySet()) {
                 String carName = entry.getKey();
                 Car car = entry.getValue();
-                char command = getNextCommand(car, step);
-                if (command == ' ') {
-                    continue;
-                }
-                switch (command) {
-                    case 'F' -> moveForward(car);
-                    case 'L' -> car.setDirection(car.getDirection().turnLeft());
-                    case 'R' -> car.setDirection(car.getDirection().turnRight());
-                    default -> log.error("Incompatible command: {}", command);
-                }
-
-                String carAtThisPosition = positionMap.get(car.getPosition());
-                if (carAtThisPosition != null && !carAtThisPosition.equals(carName)) {
-                    field.setCollidingCarNames(Arrays.asList(carAtThisPosition, carName));
-                    field.setCollisionStep(step);
-                    return;
-                }
+                var commandOpt = getNextCommand(carName, step);
+                if (commandOpt.isEmpty()) continue;
+                executeCommand(commandOpt.get(), car);
+                if (detectCollision(positionMap, car, step)) return;
                 positionMap.put(car.getPosition(), carName);
             }
             step++;
         }
     }
 
+    private Optional<Command> getNextCommand(String carName, int step) {
+        List<Command> commands = field.getCommandMap().get(carName);
+        if (commands.size() < step) {
+            return Optional.empty();
+        }
+        return Optional.of(commands.get(step - 1));
+    }
+
+    private void executeCommand(Command command, Car car) {
+        switch (command) {
+            case FORWARD -> moveForward(car);
+            case LEFT -> car.setDirection(car.getDirection().turnLeft());
+            case RIGHT -> car.setDirection(car.getDirection().turnRight());
+            default -> log.error("Incompatible command");
+        }
+    }
+
+    private boolean detectCollision(Map<Position, String> positionMap, Car currentCar, int step) {
+        String carName = currentCar.getCarName();
+        String carXName = positionMap.get(currentCar.getPosition());
+        if (carXName != null && !carXName.equals(carName)) {
+            Collision collisionCarA = new Collision(carName, currentCar.getPosition(), step);
+            Collision collisionCarX = new Collision(carXName, currentCar.getPosition(), getCollisionStep(carXName, step));
+            field.getCollisionMap().put(carName, collisionCarA);
+            field.getCollisionMap().put(carXName, collisionCarX);
+            return true;
+        }
+        return false;
+    }
+
+    private int getCollisionStep(String carName, int currentStep) {
+        int commandsLen = field.getCommandMap().get(carName).size();
+        return Math.min(currentStep, commandsLen);
+    }
+
     private void moveForward(Car car) {
         int newX = car.getPosition().getX();
         int newY = car.getPosition().getY();
         Direction direction = car.getDirection();
-
         switch (direction) {
-            case N -> newY++;
-            case E -> newX++;
-            case S -> newY--;
-            case W -> newX--;
+            case NORTH -> newY++;
+            case EAST -> newX++;
+            case SOUTH -> newY--;
+            case WEST -> newX--;
         }
-
         if (isWithinBoundaries(newX, newY)) {
             car.setPosition(new Position(newX, newY));
         } else {
             log.warn("Move ignored due to boundary limit");
         }
-    }
-
-    private char getNextCommand(Car car, int step) {
-        if (step - 1 < car.getCommand().length()) {
-            return car.getCommand().charAt(step - 1);
-        }
-        return ' ';
     }
 
     public boolean isWithinBoundaries(int x, int y) {
@@ -112,30 +120,65 @@ public class SimulationService {
         return isWithinBoundaries(x, y);
     }
 
-    public List<String> getCollidingCarNames() {
-        return field.getCollidingCarNames();
+    public Car getSimulatedCar(String carName) {
+        log.info("GetSimulatedCar; carName:{}", carName);
+        return field.getSimulatedCarMap().get(carName);
     }
 
-    public Integer getCollisionStep() {
-        return field.getCollisionStep();
-    }
-
-    public String printCarsWithCommand() {
-        return formatCarList(true);
-    }
-
-    public String printCarsWithoutCommand() {
-        return formatCarList(false);
-    }
-
-    private String formatCarList(boolean includeCommands) {
+    public String printSimulation() {
         StringBuilder sb = new StringBuilder();
-        field.getCarMap().values().forEach(car -> {
-            Position position = car.getPosition();
-            sb.append(String.format("- %s, (%d, %d) %s%s\n", car.getCarName(), position.getX(), position.getY(),
-                    car.getDirection(), includeCommands ? ", " + car.getCommand() : ""));
+        sb.append("\nYour current list of cars are:\n");
+        sb.append(printInitialCars());
+        sb.append("\nAfter simulation, the result is:\n");
+        if (field.getCollisionMap().isEmpty()) {
+            sb.append(printSimulatedCars());
+        } else {
+            sb.append(printCollision());
+        }
+        return sb.toString();
+    }
+
+    public String printCollision() {
+        Map<String, Collision> collisionMap = field.getCollisionMap();
+        List<Collision> collisions = new ArrayList<>(collisionMap.values());
+        String carNameA = collisions.get(0).carName();
+        String carNameB = collisions.get(1).carName();
+        String positionStr = printPosition(collisionMap.get(carNameA).position());
+        return String.format("- %s, collides with %s at %s at step %d\n", carNameA, carNameB, positionStr, collisionMap.get(carNameA).step()) +
+                String.format("- %s, collides with %s at %s at step %d\n", carNameB, carNameA, positionStr, collisionMap.get(carNameB).step());
+    }
+
+    public String printInitialCars() {
+        StringBuilder sb = new StringBuilder();
+        field.getInitialCarMap().values().forEach(car -> {
+            String commandStr = printCommands(field.getCommandMap().get(car.getCarName()));
+            String positionStr = printPosition(car.getPosition());
+            sb.append(String.format("- %s, %s %s, %s\n", car.getCarName(), positionStr, car.getDirection().ch(), commandStr));
         });
         return sb.toString();
+    }
+
+    public String printSimulatedCars() {
+        StringBuilder sb = new StringBuilder();
+        field.getSimulatedCarMap().values().forEach(car -> {
+            String positionStr = printPosition(car.getPosition());
+            sb.append(String.format("- %s, %s %s\n", car.getCarName(), positionStr, car.getDirection().ch()));
+        });
+        return sb.toString();
+    }
+
+    private String printPosition(Position position) {
+        return String.format("(%d,%d)", position.getX(), position.getY());
+    }
+
+    private String printCommands(List<Command> commands) {
+        StringBuilder sb = new StringBuilder();
+        commands.forEach(c -> sb.append(c.ch()));
+        return sb.toString();
+    }
+
+    public List<Collision> getCollisions() {
+        return new ArrayList<>(field.getCollisionMap().values());
     }
 
 }

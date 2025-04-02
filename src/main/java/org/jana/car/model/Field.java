@@ -1,24 +1,25 @@
 package org.jana.car.model;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class Field {
 
-    private int x;
-    private int y;
-    private Map<String, Car> carMap;
-    private Integer collisionStep;
-    private List<String> collidingCarNames;
+    private final int x;
+    private final int y;
+    private final Map<String, Car> initialCarMap;
+    private final Map<String, Car> simulatedCarMap;
+    private final Map<String, List<Command>> commandMap;
+    private final Map<String, Collision> collisionMap;
 
     public Field(int x, int y) {
         this.x = x;
         this.y = y;
-        this.carMap = new HashMap<>();
-        collisionStep = null;
-        this.collidingCarNames = new ArrayList<>();
+        this.initialCarMap = new HashMap<>();
+        this.simulatedCarMap = new HashMap<>();
+        this.commandMap = new HashMap<>();
+        this.collisionMap = new HashMap<>();
     }
 
     public int getX() {
@@ -29,28 +30,20 @@ public class Field {
         return y;
     }
 
-    public Map<String, Car> getCarMap() {
-        return carMap;
+    public Map<String, Car> getInitialCarMap() {
+        return initialCarMap;
     }
 
-    public Integer getCollisionStep() {
-        return collisionStep;
+    public Map<String, Car> getSimulatedCarMap() {
+        return simulatedCarMap;
     }
 
-    public void setCollisionStep(Integer collisionStep) {
-        this.collisionStep = collisionStep;
+    public Map<String, List<Command>> getCommandMap() {
+        return this.commandMap;
     }
 
-    public List<String> getCollidingCarNames() {
-        return collidingCarNames;
-    }
-
-    public void setCollidingCarNames(List<String> collidingCarNames) {
-        this.collidingCarNames = collidingCarNames;
-    }
-
-    public void addCar(Car car) {
-        this.carMap.put(car.getCarName(), car);
+    public Map<String, Collision> getCollisionMap() {
+        return collisionMap;
     }
 
 }

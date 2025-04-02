@@ -2,7 +2,6 @@ package org.jana.car.controller;
 
 import org.jana.car.model.Car;
 import org.jana.car.model.InputPositionDirection;
-import org.jana.car.model.Position;
 import org.jana.car.service.SimulationService;
 import org.jana.car.service.ValidationService;
 import org.jana.car.util.InputValidator;
@@ -12,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Controller;
 
-import java.util.List;
 import java.util.Scanner;
 
 @Controller
@@ -43,18 +41,19 @@ public class SimulationController implements CommandLineRunner {
                     "\nPlease enter the width and height of the simulation field in x y format:",
                     validator::validateWidthHeightOfFieldInput);
             simulationService.initField(inputXyOfField);
-            System.out.printf("\nYou have created a field of %d x %d.\n", inputXyOfField.getX(), inputXyOfField.getY());
+            System.out.printf("\nYou have created a field of %d x %d.\n", inputXyOfField.x(), inputXyOfField.y());
 
             while (true) {
                 var inputAddCarOrRunSimulation = promptForValidInput(
                         "\nPlease choose from the following options:\n[1] Add a car to field\n[2] Run simulation",
                         validator::validateAddCarOrRunSimulationInput);
 
-                if (inputAddCarOrRunSimulation.isAddCar()) {
+                if (inputAddCarOrRunSimulation.addCar()) {
                     addCar();
 
                 } else {
-                    runSimulation();
+                    simulationService.runSimulation();
+                    System.out.println(simulationService.printSimulation());
 
                     var startOverOrExitOption = promptForValidInput(
                             "\nPlease choose from the following options:\n[1] Start over\n[2] Exit",
@@ -62,7 +61,7 @@ public class SimulationController implements CommandLineRunner {
                     if (startOverOrExitOption.startOver()) {
                         break;
                     } else {
-                        System.out.println("Thank you for running the simulation. Goodbye!\n\n");
+                        System.out.println("\nThank you for running the simulation. Goodbye!\n\n");
                         return;
                     }
                 }
@@ -91,37 +90,12 @@ public class SimulationController implements CommandLineRunner {
             }
             break;
         }
+        simulationService.addCar(new Car(carName, inputPositionDirection.getPosition(), inputPositionDirection.getDirection()));
         String commandsPromptStr = String.format("\nPlease enter the commands for car %s:", carName);
-        String commands = promptForValidInput(commandsPromptStr, validator::validateCommandsInput);
-        simulationService.addCar(new Car(carName, inputPositionDirection.getPosition(), inputPositionDirection.getDirection(), commands));
+        var commands = promptForValidInput(commandsPromptStr, validator::validateCommandsInput);
+        simulationService.addCommand(carName, commands);
         System.out.println("\nYour current list of cars are:");
-        System.out.println(simulationService.printCarsWithCommand());
-    }
-
-    private void runSimulation() {
-        System.out.println("\nYour current list of cars are:");
-        System.out.println(simulationService.printCarsWithCommand());
-        simulationService.execute();
-        System.out.println("After simulation, the result is:");
-        List<String> collidingCarNames = simulationService.getCollidingCarNames();
-        if (collidingCarNames.isEmpty()) {
-            System.out.println(simulationService.printCarsWithoutCommand());
-        } else {
-            printCollision();
-        }
-        System.out.println("\n\n");
-    }
-
-    private void printCollision() {
-        List<String> collidingCarNames = simulationService.getCollidingCarNames();
-        String carNameA = collidingCarNames.get(0);
-        String carNameB = collidingCarNames.get(1);
-        Car carA = simulationService.getCar(carNameA);
-        Position position = carA.getPosition();
-        Integer collisionStep = simulationService.getCollisionStep();
-        String posStr = String.format("(%d, %d)", position.getX(), position.getY());
-        System.out.printf("- %s, collides with %s at %s at step %d\n", carNameA, carNameB, posStr, collisionStep);
-        System.out.printf("- %s, collides with %s at %s at step %d\n", carNameB, carNameA, posStr, collisionStep);
+        System.out.println(simulationService.printInitialCars());
     }
 
     private <T> T promptForValidInput(String message, InputValidator<T> validator) {

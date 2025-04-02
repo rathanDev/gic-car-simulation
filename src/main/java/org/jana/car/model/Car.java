@@ -2,24 +2,24 @@ package org.jana.car.model;
 
 public class Car {
 
-    private String carName;
+    private final String carName;
     private Position position;
     private Direction direction;
-    private String command;
 
-    public Car(String carName, Position position, Direction direction, String command) {
+    public Car(String carName, Position position, Direction direction) {
         this.carName = carName;
         this.position = position;
         this.direction = direction;
-        this.command = command;
+    }
+
+    public Car(Car other) {
+        this.carName = other.carName;
+        this.position = new Position(other.position);
+        this.direction = other.direction;
     }
 
     public String getCarName() {
         return carName;
-    }
-
-    public void setCarName(String carName) {
-        this.carName = carName;
     }
 
     public Position getPosition() {
@@ -36,14 +36,6 @@ public class Car {
 
     public void setDirection(Direction direction) {
         this.direction = direction;
-    }
-
-    public String getCommand() {
-        return command;
-    }
-
-    public void setCommand(String command) {
-        this.command = command;
     }
 
 }
